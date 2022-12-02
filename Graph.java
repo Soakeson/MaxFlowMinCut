@@ -1,7 +1,6 @@
 import java.io.File;
 import java.util.Scanner;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedList;
 
 public class Graph {
@@ -65,43 +64,71 @@ public class Graph {
         }
     }
 
-    public ArrayList<Integer> bfs(int s, int t) {
+    private ArrayList<Integer> bfs(int source, int sink) {
         LinkedList<ArrayList<Integer>> queue = new LinkedList<ArrayList<Integer>>();
         boolean[] visited = new boolean[capacity.length];
-        visited[s] = true;
-        ArrayList<Integer> p = new ArrayList<Integer>(1);
-        p.add(s);
+        visited[source] = true;
+        ArrayList<Integer> pred = new ArrayList<Integer>();
+        pred.add(source);
+        int flow = -1;
 
-        queue.add(p);
+        queue.add(pred);
 
         while (queue.size() != 0) {
             ArrayList<Integer> path = queue.pop();
-            int n = path.get(path.size()-1);
+            int parent = path.get(path.size()-1);
 
-            for (int i = 0; i < capacity[s].length; i++) {
-                if (capacity[n][i] != 0 && !visited[i]) {
-                    visited[n] = true;
+            for (int destination = 0; destination < capacity.length; destination++) {
+                if (capacity[parent][destination] != 0 && !visited[destination]) {
+                    if (flow == -1 || capacity[parent][destination] < flow) flow = capacity[parent][destination]; 
+                    visited[parent] = true;
                     ArrayList<Integer> updated = new ArrayList<Integer>();
                     for (int num: path) {
                         updated.add(num);
                     }
-                    updated.add(i);
+                    updated.add(destination);
                     queue.add(updated);
 
-                    if (i == t) {
+                    if (destination == sink) {
+                        updated.add(flow);
                         return updated;
                     }
                 }
             }
         }
         return null;
-        
     }
+
+    public int maxFlow(int source, int sink) {
+        System.out.println("MAX FLOW");
+        int flow = 0;
+        Graph residual = this;
+        ArrayList<Integer> augmented = residual.bfs(source, sink);
+        
+        while (augmented != null) {
+            int currFlow = augmented.remove(augmented.size()-1);
+            System.out.printf("Found Flow %d: " + augmented + "\n", currFlow);
+            flow += currFlow;
+            int parent = source;
+
+            for (int i=0; i < augmented.size()-1; i++) {
+                int next = augmented.get(i);
+                capacity[parent][next] -= currFlow;
+                capacity[next][parent] += currFlow;
+                parent = next;
+            }
+            augmented = residual.bfs(source, sink);
+        }
+
+        return flow;
+
+    }
+
 
     public static void main(String[] args) {
         Graph graph0 = new Graph();
-        graph0.makeGraph("demands5.txt");
+        graph0.makeGraph("demands1.txt");
         System.out.print(graph0);
-        System.out.println(graph0.bfs(1, 7));
+        System.out.printf("PRODUCED: %d\n", graph0.maxFlow(0, graph0.vertexCt - 1));
     }
 }
