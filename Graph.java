@@ -1,5 +1,6 @@
 import java.io.File;
 import java.util.Scanner;
+import java.util.Vector;
 import java.util.ArrayList;
 import java.util.LinkedList;
 
@@ -64,71 +65,108 @@ public class Graph {
         }
     }
 
-    private ArrayList<Integer> bfs(int source, int sink) {
-        LinkedList<ArrayList<Integer>> queue = new LinkedList<ArrayList<Integer>>();
-        boolean[] visited = new boolean[capacity.length];
+
+        /**
+     * 
+     * @param source starting point
+     * @param sink end point
+     * @return arraylist containing the path from source to sink, the last value is the max flow on that path
+     */
+    private Vector<Integer> bfs(int source, int sink) {
+        LinkedList<Vector<Integer>> queue = new LinkedList<Vector<Integer>>();
+        boolean[] visited = new boolean[vertexCt];
         visited[source] = true;
-        ArrayList<Integer> pred = new ArrayList<Integer>();
-        pred.add(source);
-        int flow = -1;
+        Vector<Integer> path = new Vector<>();
+        path.add(source);
 
-        queue.add(pred);
+        queue.add(path);
 
-        while (queue.size() != 0) {
-            ArrayList<Integer> path = queue.pop();
-            int parent = path.get(path.size()-1);
+        while(!queue.isEmpty()) {
+            path = queue.pop();
+            int curr = path.get(path.size() - 1);
+
+            if (curr == sink) {
+                return path;
+            }
+
 
             for (int destination = 0; destination < capacity.length; destination++) {
-                if (capacity[parent][destination] != 0 && !visited[destination]) {
-                    if (flow == -1 || capacity[parent][destination] < flow) flow = capacity[parent][destination]; 
-                    visited[parent] = true;
-                    ArrayList<Integer> updated = new ArrayList<Integer>();
-                    for (int num: path) {
-                        updated.add(num);
-                    }
+                if (capacity[curr][destination] != 0 && !visited[destination]) {
+                    visited[curr] = true;
+                    Vector<Integer> updated = new Vector<>(path);
                     updated.add(destination);
                     queue.add(updated);
-
-                    if (destination == sink) {
-                        updated.add(flow);
-                        return updated;
-                    }
                 }
-            }
+            } 
         }
         return null;
     }
 
-    public int maxFlow(int source, int sink) {
-        System.out.println("MAX FLOW");
+    public int maxFlow(int source, int sink, Graph residual) {
         int flow = 0;
-        Graph residual = this;
-        ArrayList<Integer> augmented = residual.bfs(source, sink);
+        Vector<Integer> augmented = residual.bfs(source, sink);
         
         while (augmented != null) {
-            int currFlow = augmented.remove(augmented.size()-1);
-            System.out.printf("Found Flow %d: " + augmented + "\n", currFlow);
-            flow += currFlow;
+            int currFlow = Integer.MAX_VALUE;
+            
+            // Find the min flow on the augmented path
             int parent = source;
-
-            for (int i=0; i < augmented.size()-1; i++) {
+            for (int i=1; i < augmented.size(); i++) {
                 int next = augmented.get(i);
-                capacity[parent][next] -= currFlow;
-                capacity[next][parent] += currFlow;
+                if (capacity[parent][next] < currFlow) currFlow = capacity[parent][next];
                 parent = next;
             }
+            System.out.printf("Found Flow %d: " + augmented + "\n", currFlow);
+            flow += currFlow;
+            
+            // Work backwards because the parent is set at the end of the path, update flow along the path
+            for (int i = augmented.size()-2; i >= 0; i--) {
+                int prev = augmented.get(i);
+                capacity[prev][parent] -= currFlow;
+                capacity[parent][prev] += currFlow;
+                parent = prev;
+            }
+
             augmented = residual.bfs(source, sink);
         }
 
         return flow;
+    }
 
+    public void minCut(int source, int sink, Graph residual) {
+        boolean[] reachable = dfs(source);
+
+        for (int i = 0; i < vertexCt; i++) {
+            for (int j = 0; j < vertexCt; j++) {
+                if (capacity[i][j] > 0 && reachable[j] && !reachable[i]) {
+                    System.out.printf("Edge (%d, %d) transports cases %d \n", j, i, capacity[i][j]);
+                }
+            }
+        }
+    }
+
+    public boolean[] dfs(int source) {
+        boolean[] visited = new boolean[vertexCt];
+        dfs(source, visited);
+        return visited;
+    }
+
+    private void dfs(int source, boolean[] visited) {
+        visited[source] = true;
+        for (int i = 0; i < vertexCt; i++) {
+            if (capacity[source][i] > 0 && !visited[i])
+                dfs(i, visited);
+        }
     }
 
 
     public static void main(String[] args) {
         Graph graph0 = new Graph();
-        graph0.makeGraph("demands1.txt");
+        Graph residual = graph0;
+        graph0.makeGraph("demands6.txt");
         System.out.print(graph0);
-        System.out.printf("PRODUCED: %d\n", graph0.maxFlow(0, graph0.vertexCt - 1));
+        System.out.printf("PRODUCED %d:\n", graph0.maxFlow(0, graph0.vertexCt - 1, residual));
+        graph0.minCut(0, graph0.vertexCt - 1,residual);
+
     }
 }
